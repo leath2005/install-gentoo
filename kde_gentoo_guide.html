@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KDE Plasma 6 on Gentoo — OpenRC + AMD + Wayland</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #1c2128;
+    --border:    #30363d;
+    --blue:      #388bfd;
+    --blue-dim:  #1f4f8f;
+    --green:     #3fb950;
+    --yellow:    #d29922;
+    --red:       #f85149;
+    --purple:    #a371f7;
+    --text:      #e6edf3;
+    --text-dim:  #8b949e;
+    --code-bg:   #010409;
+    --accent:    #21262d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.7;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  nav {
+    width: 260px;
+    min-width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  nav .logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  nav .logo-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--blue);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  nav .logo-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  nav ul {
+    list-style: none;
+    padding: 0 8px;
+  }
+
+  nav li a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 400;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  nav li a:hover,
+  nav li a.active {
+    background: var(--accent);
+    color: var(--text);
+  }
+
+  nav li a .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--blue);
+    min-width: 20px;
+  }
+
+  nav .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 12px 20px 4px;
+  }
+
+  /* ── Main ── */
+  main {
+    flex: 1;
+    max-width: 860px;
+    padding: 48px 52px;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  .page-header {
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .page-header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+
+  .page-header h1 span { color: var(--blue); }
+
+  .badge-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+  }
+
+  .badge-blue  { color: var(--blue);   border-color: var(--blue-dim);  background: #1f3a5f22; }
+  .badge-green { color: var(--green);  border-color: #2d6a3f;          background: #1a3a2522; }
+  .badge-purple{ color: var(--purple); border-color: #5a3a8f;          background: #2d1a5f22; }
+
+  /* ── Sections ── */
+  section {
+    margin-bottom: 52px;
+    scroll-margin-top: 24px;
+  }
+
+  h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  h2 .step-num {
+    background: var(--blue-dim);
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--blue);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 24px 0 8px;
+  }
+
+  p { margin-bottom: 12px; color: var(--text); }
+
+  a { color: var(--blue); }
+
+  /* ── Code blocks ── */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    margin: 16px 0;
+    position: relative;
+  }
+
+  pre code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.65;
+    color: #cdd6f4;
+  }
+
+  .comment  { color: #6c7086; }
+  .cmd      { color: #89b4fa; }
+  .string   { color: #a6e3a1; }
+  .flag     { color: #fab387; }
+  .key      { color: #cba6f7; }
+  .val      { color: #f38ba8; }
+
+  /* ── Callout boxes ── */
+  .callout {
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    border-left: 3px solid;
+    font-size: 14px;
+  }
+
+  .callout-note    { background: #1a2a3a; border-color: var(--blue);   }
+  .callout-warn    { background: #2a1e0a; border-color: var(--yellow); }
+  .callout-danger  { background: #2a0d0d; border-color: var(--red);    }
+  .callout-tip     { background: #0d2a1a; border-color: var(--green);  }
+
+  .callout-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+
+  .callout-note  .callout-label { color: var(--blue);   }
+  .callout-warn  .callout-label { color: var(--yellow); }
+  .callout-danger .callout-label { color: var(--red);   }
+  .callout-tip   .callout-label { color: var(--green);  }
+
+  .callout p { margin: 0; color: var(--text-dim); line-height: 1.6; }
+  .callout code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #cdd6f4;
+  }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13.5px;
+  }
+
+  th {
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #21262d;
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  td code, th code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #cdd6f4;
+  }
+
+  td:first-child { color: #89b4fa; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+  /* ── Source note ── */
+  .source-bar {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 32px;
+  }
+
+  .source-bar strong { color: var(--text); }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<nav>
+  <div class="logo">
+    <div class="logo-title">KDE on Gentoo</div>
+    <div class="logo-sub">OpenRC · AMD · Wayland · Plasma 6</div>
+  </div>
+  <div class="section-label">Prerequisites</div>
+  <ul>
+    <li><a href="#prereqs"><span class="num">00</span> Base System</a></li>
+  </ul>
+  <div class="section-label">Setup</div>
+  <ul>
+    <li><a href="#makeconf"><span class="num">01</span> USE Flags</a></li>
+    <li><a href="#preinstall"><span class="num">02</span> Pre-install Services</a></li>
+    <li><a href="#install"><span class="num">03</span> Install KDE</a></li>
+    <li><a href="#displaymanager"><span class="num">04</span> display-manager-init</a></li>
+    <li><a href="#sddm"><span class="num">05</span> SDDM Config</a></li>
+    <li><a href="#services"><span class="num">06</span> OpenRC Services</a></li>
+    <li><a href="#network"><span class="num">07</span> Network Conflicts</a></li>
+    <li><a href="#user"><span class="num">08</span> User Setup</a></li>
+    <li><a href="#polkit"><span class="num">09</span> Polkit</a></li>
+    <li><a href="#pipewire"><span class="num">10</span> PipeWire</a></li>
+    <li><a href="#wayland"><span class="num">11</span> Session Control</a></li>
+    <li><a href="#amd"><span class="num">12</span> AMD Verification</a></li>
+    <li><a href="#kwallet"><span class="num">13</span> KWallet PAM</a></li>
+    <li><a href="#checklist"><span class="num">14</span> Pre-boot Checklist</a></li>
+  </ul>
+  <div class="section-label">Reference</div>
+  <ul>
+    <li><a href="#troubleshoot">Troubleshooting</a></li>
+    <li><a href="#quickref">Service Quick Ref</a></li>
+    <li><a href="#sources">Sources</a></li>
+  </ul>
+</nav>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <div class="page-header">
+    <h1><span>KDE Plasma 6</span> on Gentoo Linux</h1>
+    <p style="color:var(--text-dim); margin-top:8px;">Full plasma-meta + kde-apps-meta installation guide for a completed Gentoo base system. Assumes a working kernel (EFI stub), AMD GPU, CPU flags, and <code>desktop/plasma</code> profile already configured. Based on the Gentoo wiki pages for KDE, SDDM, elogind, PipeWire, and NetworkManager.</p>
+    <div class="badge-row">
+      <span class="badge badge-blue">OpenRC</span>
+      <span class="badge badge-blue">amdgpu / radeonsi</span>
+      <span class="badge badge-blue">EFI Stub</span>
+      <span class="badge badge-green">Plasma 6</span>
+      <span class="badge badge-green">Wayland</span>
+      <span class="badge badge-purple">elogind</span>
+    </div>
+  </div>
+
+  <div class="source-bar">
+    <strong>Source:</strong> All commands and notes on this page are derived from
+    <a href="https://wiki.gentoo.org/wiki/KDE">wiki.gentoo.org/wiki/KDE</a>,
+    <a href="https://wiki.gentoo.org/wiki/SDDM">SDDM</a>,
+    <a href="https://wiki.gentoo.org/wiki/Elogind">Elogind</a>,
+    <a href="https://wiki.gentoo.org/wiki/PipeWire">PipeWire</a>, and
+    <a href="https://wiki.gentoo.org/wiki/NetworkManager">NetworkManager</a> wiki pages.
+    Cross-reference those pages — they are updated more frequently than any guide.
+  </div>
+
+  <!-- ── 0. PREREQUISITES ── -->
+  <section id="prereqs">
+    <h2><span class="step-num">00</span> Base System Prerequisites</h2>
+    <p>This guide assumes you have a <strong>fully working Gentoo base system</strong> before proceeding. The following must already be in place:</p>
+    <table>
+      <thead>
+        <tr><th>Component</th><th>Expected State</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Kernel</td><td>Compiled, installed, and booting via EFI stub (no GRUB)</td></tr>
+        <tr><td>VIDEO_CARDS</td><td><code>*/* VIDEO_CARDS: -* amdgpu radeonsi</code> in <code>/etc/portage/package.use/00video_cards</code></td></tr>
+        <tr><td>CPU_FLAGS_X86</td><td>Set via <code>cpuid2cpuflags</code> in <code>/etc/portage/package.use/00cpu-flags</code></td></tr>
+        <tr><td>Profile</td><td><code>default/linux/amd64/23.0/desktop/plasma</code> selected</td></tr>
+        <tr><td>Init system</td><td>OpenRC (not systemd)</td></tr>
+        <tr><td>Boot</td><td>System boots to a working TTY login</td></tr>
+        <tr><td>linux-firmware</td><td>Installed (required for AMD GPU firmware blobs)</td></tr>
+      </tbody>
+    </table>
+    <p>Quick verification:</p>
+    <pre><code><span class="comment"># Profile is desktop/plasma (OpenRC)?</span>
+<span class="cmd">eselect</span> profile show
+<span class="comment"># Expected: default/linux/amd64/23.0/desktop/plasma</span>
+
+<span class="comment"># VIDEO_CARDS set?</span>
+<span class="cmd">cat</span> /etc/portage/package.use/00video_cards
+<span class="comment"># Expected: */* VIDEO_CARDS: -* amdgpu radeonsi</span>
+
+<span class="comment"># CPU flags set?</span>
+<span class="cmd">cat</span> /etc/portage/package.use/00cpu-flags
+<span class="comment"># Expected: */* CPU_FLAGS_X86: aes avx avx2 ...</span>
+
+<span class="comment"># Booting via EFI stub?</span>
+<span class="cmd">efibootmgr</span> <span class="flag">-v</span>
+
+<span class="comment"># Kernel running?</span>
+<span class="cmd">uname</span> <span class="flag">-r</span></code></pre>
+    <div class="callout callout-warn">
+      <div class="callout-label">Warning</div>
+      <p>Use <code>desktop/plasma</code> — not <code>desktop/plasma/systemd</code>. This entire guide assumes OpenRC. If your profile is wrong, set it with <code>eselect profile set default/linux/amd64/23.0/desktop/plasma</code> before continuing.</p>
+    </div>
+  </section>
+
+  <!-- ── 1. MAKE.CONF ── -->
+  <section id="makeconf">
+    <h2><span class="step-num">01</span> Add KDE USE Flags</h2>
+    <p><code>VIDEO_CARDS</code> and <code>CPU_FLAGS_X86</code> are already handled in <code>package.use</code>. The plasma profile manages most KDE-specific USE flags automatically. You only need to add session management, audio, and desktop USE flags to <code>make.conf</code>. Remove any existing <code>qt4</code>, <code>kde</code>, <code>plasma</code>, or <code>handbook</code> entries — the profile manages these now.</p>
+    <p>Append these USE flags to your existing <code>make.conf</code>:</p>
+    <pre><code><span class="comment"># /etc/portage/make.conf — ADD to existing file</span>
+
+<span class="comment"># KDE / desktop USE flags (append to existing USE or add new USE line)</span>
+<span class="key">USE</span>=<span class="string">"elogind dbus policykit pipewire alsa bluetooth networkmanager \
+     wayland X openrc -systemd -gnome -gtk-doc -test"</span>
+
+<span class="key">ACCEPT_LICENSE</span>=<span class="string">"*"</span>
+<span class="key">ACCEPT_KEYWORDS</span>=<span class="string">"amd64"</span></code></pre>
+
+    <div class="callout callout-danger">
+      <div class="callout-label">Critical</div>
+      <p>The Gentoo elogind wiki explicitly states: using <code>elogind</code> and <code>systemd</code> USE flags simultaneously is untested and not advised. Keep <code>-systemd</code> in USE at all times.</p>
+    </div>
+
+    <p>Check for leftover conflicting flags:</p>
+    <pre><code><span class="cmd">grep</span> <span class="flag">-e</span> <span class="string">"qt[0-9]"</span> <span class="flag">-e</span> <span class="string">"kde"</span> <span class="flag">-e</span> <span class="string">"plasma"</span> <span class="flag">-e</span> <span class="string">"handbook"</span> /etc/portage/make.conf</code></pre>
+  </section>
+
+  <!-- ── 2. PRE-INSTALL ── -->
+  <section id="preinstall">
+    <h2><span class="step-num">02</span> Pre-install Services</h2>
+    <p>The Gentoo KDE wiki states that default service dependencies are pulled in automatically by the plasma profile, but must be set up properly <strong>before starting Plasma for the first time</strong>. Install them first with <code>--oneshot</code> so Portage accounts for them when resolving KDE's dependency tree:</p>
+    <pre><code><span class="comment"># Session management — must exist before plasma-meta build</span>
+<span class="cmd">emerge</span> <span class="flag">--ask --oneshot</span> sys-auth/elogind
+
+<span class="comment"># Message bus</span>
+<span class="cmd">emerge</span> <span class="flag">--ask --oneshot</span> sys-apps/dbus
+
+<span class="comment"># Audio + screen sharing (Wayland)</span>
+<span class="cmd">emerge</span> <span class="flag">--ask --oneshot</span> media-video/pipewire media-video/wireplumber</code></pre>
+    <div class="callout callout-note">
+      <div class="callout-label">Note</div>
+      <p><code>--oneshot</code> installs without adding to @world but Portage still resolves against them during the main KDE emerge. This avoids circular dependency issues.</p>
+    </div>
+  </section>
+
+  <!-- ── 3. INSTALL ── -->
+  <section id="install">
+    <h2><span class="step-num">03</span> Install KDE Plasma + Apps</h2>
+    <p>SDDM is pulled in automatically by <code>plasma-meta</code> — no need to install it separately. This emerge takes a while.</p>
+    <pre><code><span class="cmd">emerge</span> <span class="flag">--ask</span> kde-plasma/plasma-meta kde-apps/kde-apps-meta</code></pre>
+    <div class="callout callout-warn">
+      <div class="callout-label">Warning</div>
+      <p>The Gentoo KDE wiki warns against using <code>kde-plasma/plasma-desktop</code> as a base. It excludes critical packages like <code>powerdevil</code> (power management) and <code>systemsettings</code>. Use <code>plasma-meta</code>. If you hit a circular dependency error (rare since late 2024): <code>USE="minimal" emerge --ask kde-plasma/plasma-meta</code>, then re-run the full emerge.</p>
+    </div>
+    <p>After plasma-meta, install remaining system tools:</p>
+    <pre><code><span class="cmd">emerge</span> <span class="flag">--ask</span> \
+    net-misc/networkmanager \
+    net-wireless/bluez \
+    sys-fs/udisks \
+    sys-power/upower \
+    app-misc/colord \
+    x11-misc/xdg-user-dirs \
+    app-admin/sudo \
+    gui-libs/display-manager-init</code></pre>
+  </section>
+
+  <!-- ── 4. DM INIT ── -->
+  <section id="displaymanager">
+    <h2><span class="step-num">04</span> Configure display-manager-init</h2>
+    <p><code>gui-libs/display-manager-init</code> provides the OpenRC init script that SDDM needs. Set it to use SDDM:</p>
+    <pre><code><span class="cmd">sed</span> <span class="flag">-i</span> <span class="string">'s/^DISPLAYMANAGER=.*/DISPLAYMANAGER="sddm"/'</span> /etc/conf.d/display-manager
+
+<span class="comment"># Verify:</span>
+<span class="cmd">grep</span> DISPLAYMANAGER /etc/conf.d/display-manager</code></pre>
+  </section>
+
+  <!-- ── 5. SDDM ── -->
+  <section id="sddm">
+    <h2><span class="step-num">05</span> SDDM Configuration</h2>
+    <p>SDDM uses directory-based config. Package defaults live in <code>/usr/share/sddm/sddm.conf.d/</code> — local overrides go in <code>/etc/sddm.conf.d/</code>. The Gentoo SDDM wiki specifies that Wayland mode on OpenRC/elogind requires using KWin as the compositor with specific flags:</p>
+    <pre><code><span class="cmd">mkdir</span> <span class="flag">-p</span> /etc/sddm.conf.d/
+
+<span class="cmd">cat</span> &gt; /etc/sddm.conf.d/override.conf <span class="string">&lt;&lt; 'EOF'</span>
+[General]
+DisplayServer=wayland
+GreeterEnvironment=QT_WAYLAND_SHELL_INTEGRATION=layer-shell
+
+[Wayland]
+CompositorCommand=kwin_wayland --drm --no-lockscreen --no-global-shortcuts --locale1
+SessionDir=/usr/share/wayland-sessions
+
+[Users]
+RememberLastUser=true
+RememberLastSession=true
+<span class="string">EOF</span></code></pre>
+    <div class="callout callout-warn">
+      <div class="callout-label">Warning</div>
+      <p>The Gentoo SDDM wiki states the <code>--drm</code> flag is required in <code>CompositorCommand</code> for DRM-based systems (which AMD is). Without it SDDM may fail to start.</p>
+    </div>
+    <p>Verify machine-id exists — SDDM requires it:</p>
+    <pre><code><span class="cmd">if</span> [ ! -f /etc/machine-id ]; then
+    <span class="cmd">systemd-machine-id-setup</span>
+fi
+<span class="cmd">cat</span> /etc/machine-id   <span class="comment"># must be non-empty</span></code></pre>
+  </section>
+
+  <!-- ── 6. SERVICES ── -->
+  <section id="services">
+    <h2><span class="step-num">06</span> OpenRC Services</h2>
+    <p>On OpenRC every service must be explicitly enabled. On systemd they auto-start via D-Bus activation — on OpenRC they do not. KDE Plasma requires these services in dependency order:</p>
+    <pre><code><span class="comment"># elogind — BOOT runlevel, must be up before display manager</span>
+<span class="cmd">rc-update</span> add elogind boot
+
+<span class="comment"># D-Bus — everything depends on this</span>
+<span class="cmd">rc-update</span> add dbus default
+
+<span class="comment"># NetworkManager — pulled in by plasma-meta</span>
+<span class="cmd">rc-update</span> add NetworkManager default
+
+<span class="comment"># Bluetooth</span>
+<span class="cmd">rc-update</span> add bluetooth default
+
+<span class="comment"># Disk/removable devices — Dolphin, device notifier</span>
+<span class="cmd">rc-update</span> add udisks default
+
+<span class="comment"># Power management — battery, suspend, hibernate</span>
+<span class="cmd">rc-update</span> add upower default
+
+<span class="comment"># Colour management</span>
+<span class="cmd">rc-update</span> add colord default
+
+<span class="comment"># Display manager (SDDM via display-manager-init)</span>
+<span class="cmd">rc-update</span> add display-manager default</code></pre>
+
+    <div class="callout callout-warn">
+      <div class="callout-label">Warning — elogind must be in boot, not default</div>
+      <p>The Gentoo SDDM wiki states: "In its default configuration, SDDM will not start without elogind. Enable and start it — add elogind to the boot runlevel." This ensures it is running before the display manager initialises.</p>
+    </div>
+
+    <p>Verify the full list:</p>
+    <pre><code><span class="cmd">rc-update</span> show | <span class="cmd">grep</span> <span class="flag">-E</span> <span class="string">'elogind|dbus|Network|bluetooth|udisks|upower|colord|display'</span></code></pre>
+  </section>
+
+  <!-- ── 7. NETWORK ── -->
+  <section id="network">
+    <h2><span class="step-num">07</span> Remove netifrc / dhcpcd Conflicts</h2>
+    <p>If you previously used netifrc scripts or dhcpcd, they will conflict with NetworkManager — two DHCP clients fighting each other. The Gentoo NetworkManager wiki gives this exact command:</p>
+    <pre><code><span class="cmd">for</span> x in /etc/runlevels/default/net.* ; do
+    <span class="cmd">rc-update</span> del $(basename $x) default
+    <span class="cmd">rc-service</span> <span class="flag">--ifstarted</span> $(basename $x) stop
+done</code></pre>
+    <div class="callout callout-danger">
+      <div class="callout-label">Critical</div>
+      <p>Remove netifrc entries <strong>before rebooting</strong>. Two simultaneous DHCP clients will cause unpredictable network behaviour.</p>
+    </div>
+  </section>
+
+  <!-- ── 8. USER ── -->
+  <section id="user">
+    <h2><span class="step-num">08</span> User Setup</h2>
+    <p>The Gentoo NetworkManager wiki specifies that <code>plugdev</code> is required for non-root users to manage network connections. The <code>seat</code> group is needed for elogind seat management:</p>
+    <pre><code><span class="comment"># Replace 'youruser' with your actual username</span>
+<span class="cmd">usermod</span> <span class="flag">-aG</span> wheel,audio,video,usb,plugdev,input,bluetooth,seat youruser
+
+<span class="comment"># Enable wheel group for sudo</span>
+<span class="cmd">visudo</span>
+<span class="comment"># Uncomment: %wheel ALL=(ALL:ALL) ALL</span>
+
+<span class="comment"># Verify:</span>
+<span class="cmd">id</span> youruser</code></pre>
+  </section>
+
+  <!-- ── 9. POLKIT ── -->
+  <section id="polkit">
+    <h2><span class="step-num">09</span> Polkit Wheel Rule</h2>
+    <p>By default in Gentoo, only root is an administrator for KDE system dialogs (printers, adding users, etc.). The Gentoo KDE wiki documents that NetworkManager already ships a polkit rule for <code>plugdev</code>, but other dialogs need a wheel rule:</p>
+    <pre><code><span class="cmd">cp</span> /usr/share/polkit-1/rules.d/50-default.rules \
+   /etc/polkit-1/rules.d/49-wheel.rules
+
+<span class="comment"># Edit 49-wheel.rules, change the group to wheel:</span>
+<span class="comment"># polkit.addAdminRule(function(action, subject) {</span>
+<span class="comment">#     return ["unix-group:wheel"];</span>
+<span class="comment"># });</span></code></pre>
+    <div class="callout callout-note">
+      <div class="callout-label">Note</div>
+      <p>NetworkManager connection management already works via the <code>plugdev</code> group polkit rule shipped with the Gentoo package. The wheel rule is for other system dialogs like printer configuration.</p>
+    </div>
+  </section>
+
+  <!-- ── 10. PIPEWIRE ── -->
+  <section id="pipewire">
+    <h2><span class="step-num">10</span> PipeWire</h2>
+    <p>PipeWire on OpenRC uses <code>gentoo-pipewire-launcher</code> — a script Gentoo installs specifically for non-systemd systems. The Gentoo PipeWire wiki states that Plasma reads XDG autostart files, so no manual configuration is needed for a Plasma session:</p>
+    <pre><code><span class="comment"># PipeWire installs /etc/xdg/autostart/pipewire.desktop automatically.</span>
+<span class="comment"># Plasma reads this on login and starts PipeWire + WirePlumber.</span>
+<span class="comment"># No manual action required for a Plasma/Wayland session.</span>
+
+<span class="comment"># After first login, verify:</span>
+<span class="cmd">wpctl</span> status
+<span class="comment"># Should list sinks/sources under your audio hardware</span></code></pre>
+    <div class="callout callout-note">
+      <div class="callout-label">Note</div>
+      <p>The Gentoo PipeWire wiki notes <code>gentoo-pipewire-launcher</code> is a temporary OpenRC solution while OpenRC user services mature. As of 2026, the XDG autostart method is the correct approach for Plasma sessions — the <code>.desktop</code> file is installed by the package automatically.</p>
+    </div>
+  </section>
+
+  <!-- ── 11. SESSION CONTROL ── -->
+  <section id="wayland">
+    <h2><span class="step-num">11</span> Plasma Session Control</h2>
+    <p>From Plasma 6.2.1 on Gentoo, <code>kde-plasma/plasma-login-sessions</code> controls which session types appear in SDDM. The desktop/plasma profile enables X globally, so both Wayland and X11 entries appear by default. To restrict to Wayland only:</p>
+    <pre><code><span class="comment"># /etc/portage/package.use/plasma-login-sessions</span>
+kde-plasma/plasma-login-sessions wayland -X
+
+<span class="cmd">emerge</span> <span class="flag">--ask --changed-use</span> kde-plasma/plasma-login-sessions</code></pre>
+    <div class="callout callout-danger">
+      <div class="callout-label">Warning</div>
+      <p>Only restrict to Wayland after confirming it works. Test first from a TTY: <code>dbus-run-session startplasma-wayland</code>. A broken Wayland config with X11 disabled will give you a black screen with no fallback.</p>
+    </div>
+  </section>
+
+  <!-- ── 12. AMD ── -->
+  <section id="amd">
+    <h2><span class="step-num">12</span> AMD GPU Verification</h2>
+    <p>With <code>amdgpu radeonsi</code> in <code>VIDEO_CARDS</code> and <code>linux-firmware</code> installed, AMD works out of the box. The Gentoo KDE wiki notes KWin falls back to software rendering if <code>VIDEO_CARDS</code> is wrong or DRM is not enabled in the kernel. Verify after first boot:</p>
+    <pre><code><span class="comment"># Firmware loaded OK?</span>
+<span class="cmd">dmesg</span> | <span class="cmd">grep</span> <span class="flag">-i</span> amdgpu | <span class="cmd">head</span> <span class="flag">-20</span>
+
+<span class="comment"># Mesa using AMD hardware?</span>
+<span class="cmd">glxinfo</span> | <span class="cmd">grep</span> <span class="string">'OpenGL renderer'</span>
+<span class="comment"># Expected: AMD Radeon RX... (RADV ...)</span>
+
+<span class="comment"># Vulkan present?</span>
+<span class="cmd">vulkaninfo</span> <span class="flag">--summary</span> 2&gt;/dev/null | <span class="cmd">grep</span> deviceName
+
+<span class="comment"># Wayland session active?</span>
+<span class="cmd">echo</span> $WAYLAND_DISPLAY    <span class="comment"># wayland-0 or wayland-1</span>
+<span class="cmd">echo</span> $XDG_SESSION_TYPE   <span class="comment"># wayland</span></code></pre>
+  </section>
+
+  <!-- ── 13. KWALLET ── -->
+  <section id="kwallet">
+    <h2><span class="step-num">13</span> KWallet PAM Integration</h2>
+    <p>To have KWallet unlock automatically at SDDM login, configure PAM. The Gentoo KDE wiki documents this for SDDM:</p>
+    <pre><code><span class="comment"># Append to /etc/pam.d/sddm:</span>
+-auth     optional  pam_kwallet5.so
+-session  optional  pam_kwallet5.so auto_start</code></pre>
+    <div class="callout callout-note">
+      <div class="callout-label">Note</div>
+      <p>If you do not want KWallet, disable it in System Settings → KWallet, or set a blank password on first launch to suppress prompts entirely.</p>
+    </div>
+  </section>
+
+  <!-- ── 14. CHECKLIST ── -->
+  <section id="checklist">
+    <h2><span class="step-num">14</span> Pre-boot Checklist</h2>
+    <pre><code><span class="comment"># Services correct?</span>
+<span class="cmd">rc-update</span> show
+
+<span class="comment"># machine-id present?</span>
+<span class="cmd">cat</span> /etc/machine-id
+
+<span class="comment"># User in correct groups?</span>
+<span class="cmd">id</span> youruser
+
+<span class="comment"># SDDM config valid?</span>
+<span class="cmd">cat</span> /etc/sddm.conf.d/override.conf
+
+<span class="comment"># display-manager set to sddm?</span>
+<span class="cmd">grep</span> DISPLAYMANAGER /etc/conf.d/display-manager
+
+<span class="comment"># No conflicting net.* scripts?</span>
+<span class="cmd">ls</span> /etc/runlevels/default/net.* 2&gt;/dev/null || <span class="cmd">echo</span> <span class="string">"Clean"</span>
+
+<span class="comment"># Reboot</span>
+<span class="cmd">reboot</span></code></pre>
+  </section>
+
+  <hr>
+
+  <!-- ── TROUBLESHOOTING ── -->
+  <section id="troubleshoot">
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead>
+        <tr><th>Problem</th><th>Fix</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>SDDM black screen / no greeter</td>
+          <td>TTY2 → <code>dmesg | grep amdgpu</code>. Check <code>--drm</code> in CompositorCommand. Verify elogind is in <code>boot</code> runlevel not <code>default</code>.</td>
+        </tr>
+        <tr>
+          <td>elogind/systemd block conflict</td>
+          <td>Ensure USE has <code>elogind -systemd</code>. Run <code>emerge --ask --changed-use --deep @world</code>.</td>
+        </tr>
+        <tr>
+          <td>No audio after login</td>
+          <td>Run <code>wpctl status</code>. If empty, check <code>/etc/xdg/autostart/pipewire.desktop</code> exists. Log out and back in.</td>
+        </tr>
+        <tr>
+          <td>KDE system dialogs fail auth</td>
+          <td>Add polkit wheel rule (Section 10). NetworkManager uses plugdev separately.</td>
+        </tr>
+        <tr>
+          <td>Drives not appearing in Dolphin</td>
+          <td><code>rc-service udisks start</code> then <code>rc-update add udisks default</code>. User must be in <code>plugdev</code>.</td>
+        </tr>
+        <tr>
+          <td>Suspend/hibernate missing from menu</td>
+          <td>elogind must be in <code>boot</code> runlevel. Check kernel has <code>CONFIG_SUSPEND=y</code>.</td>
+        </tr>
+        <tr>
+          <td>NetworkManager not managing wifi</td>
+          <td>Remove netifrc <code>net.*</code> scripts from default runlevel (Section 8).</td>
+        </tr>
+        <tr>
+          <td>KWallet prompt loop after login</td>
+          <td>Configure <code>pam_kwallet5.so</code> in <code>/etc/pam.d/sddm</code> (Section 14), or set blank wallet password.</td>
+        </tr>
+        <tr>
+          <td>Both X11 and Wayland in SDDM</td>
+          <td>Normal — profile enables X globally. Restrict with <code>plasma-login-sessions</code> USE flags (Section 12).</td>
+        </tr>
+        <tr>
+          <td>KWin using software rendering</td>
+          <td>Verify <code>*/* VIDEO_CARDS: -* amdgpu radeonsi</code> in <code>/etc/portage/package.use/00video_cards</code> and DRM enabled in kernel. Rebuild Mesa.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── QUICK REF ── -->
+  <section id="quickref">
+    <h2>Service Quick Reference</h2>
+    <table>
+      <thead>
+        <tr><th>Service</th><th>Runlevel</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>elogind</td><td><span style="color:var(--yellow)">boot</span></td><td>Session management — must start before display manager</td></tr>
+        <tr><td>dbus</td><td>default</td><td>Message bus — everything depends on this</td></tr>
+        <tr><td>NetworkManager</td><td>default</td><td>Network management</td></tr>
+        <tr><td>bluetooth</td><td>default</td><td>Bluetooth via bluez</td></tr>
+        <tr><td>udisks</td><td>default</td><td>Disk/removable device management (Dolphin)</td></tr>
+        <tr><td>upower</td><td>default</td><td>Power management, battery, suspend</td></tr>
+        <tr><td>colord</td><td>default</td><td>Colour management</td></tr>
+        <tr><td>display-manager</td><td>default</td><td>Starts SDDM</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── SOURCES ── -->
+  <section id="sources">
+    <h2>Sources</h2>
+    <ul style="list-style:none; display:flex; flex-direction:column; gap:6px;">
+      <li>→ <a href="https://wiki.gentoo.org/wiki/KDE">wiki.gentoo.org/wiki/KDE</a> — Primary KDE installation guide</li>
+      <li>→ <a href="https://wiki.gentoo.org/wiki/SDDM">wiki.gentoo.org/wiki/SDDM</a> — SDDM OpenRC/Wayland configuration</li>
+      <li>→ <a href="https://wiki.gentoo.org/wiki/Elogind">wiki.gentoo.org/wiki/Elogind</a> — Session management</li>
+      <li>→ <a href="https://wiki.gentoo.org/wiki/PipeWire">wiki.gentoo.org/wiki/PipeWire</a> — Audio for OpenRC</li>
+      <li>→ <a href="https://wiki.gentoo.org/wiki/NetworkManager">wiki.gentoo.org/wiki/NetworkManager</a> — NM and plugdev group</li>
+      <li>→ <a href="https://wiki.gentoo.org/wiki/KDE/Troubleshooting">wiki.gentoo.org/wiki/KDE/Troubleshooting</a> — Common Plasma issues</li>
+    </ul>
+  </section>
+
+  <footer>Generated April 2026 — Cross-reference Gentoo wiki pages before applying; packages and flags change frequently.</footer>
+
+</main>
+
+<script>
+  // Highlight active nav link on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('nav li a');
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active'));
+        const active = document.querySelector(`nav li a[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
