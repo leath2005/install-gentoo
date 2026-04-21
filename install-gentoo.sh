@@ -14,6 +14,14 @@
 # ─────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# Resolve installer script path once so later `cd` calls do not break self-copy.
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-$0}"
+SCRIPT_PATH="$(readlink -f "$SCRIPT_SOURCE" 2>/dev/null || true)"
+if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
+    printf '[ERROR] Could not resolve installer script path from %s\n' "$SCRIPT_SOURCE" >&2
+    exit 1
+fi
+
 # ── Colours ──────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -419,7 +427,7 @@ mountpoint -q /mnt/gentoo/run  || { mount --bind /run /mnt/gentoo/run && mount -
 ok "Pseudo-filesystems mounted."
 
 # Copy this script into the chroot
-cp "$0" /mnt/gentoo/tmp/install-gentoo.sh
+cp "$SCRIPT_PATH" /mnt/gentoo/tmp/install-gentoo.sh
 chmod +x /mnt/gentoo/tmp/install-gentoo.sh
 
 # ══════════════════════════════════════════════════════════════════════
