@@ -116,28 +116,24 @@ if [[ "${INSTALL_PHASE:-}" == "chroot" ]]; then
     ln -sf ../usr/share/zoneinfo/America/Detroit /etc/localtime
     ok "Timezone set to America/Detroit"
 
-    # Ensure en_US.UTF-8 is uncommented in locale.gen
+    # Ensure en_US.UTF-8 line exists and is uncommented in locale.gen
     if [[ -f /etc/locale.gen ]]; then
-        sed -i 's/^#\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+        if grep -qE '^[[:space:]]*#?[[:space:]]*en_US\.UTF-8[[:space:]]+UTF-8' /etc/locale.gen; then
+            sed -i -E 's|^[[:space:]]*#?[[:space:]]*(en_US\.UTF-8[[:space:]]+UTF-8)|\1|' /etc/locale.gen
+        else
+            echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+        fi
     else
         echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
     fi
+
     locale-gen
+    eselect locale set 4 || warn "Could not set locale index 4 automatically — run: eselect locale set <num>"
+    ok "Locale generation complete and locale selection attempted (index 4)."
 
-    # Set locale via eselect
-    LOCALE_NUM=$(eselect locale list | grep -n 'en_US.utf8' | head -1 | cut -d: -f1)
-    if [[ -n "$LOCALE_NUM" ]]; then
-        # eselect uses the index shown in brackets, extract it
-        LOCALE_IDX=$(eselect locale list | grep 'en_US.utf8' | head -1 | grep -o '\[[0-9]*\]' | tr -d '[]')
-        eselect locale set "$LOCALE_IDX"
-        ok "Locale set to en_US.UTF-8"
-    else
-        warn "Could not auto-detect en_US.utf8 index — set manually with: eselect locale set <num>"
-    fi
-
-    env-update
-    set +u; source /etc/profile; set -u
-    export PS1="(chroot) ${PS1:-}"
+    set +u
+    env-update && source /etc/profile && export PS1="(chroot) ${PS1}"
+    set -u
 
     # ── 2.6 Firmware ─────────────────────────────────────────────────
     step "Phase 2.6: Linux firmware"
@@ -404,7 +400,7 @@ FCFLAGS="${COMMON_FLAGS}"
 FFLAGS="${COMMON_FLAGS}"
 RUSTFLAGS="${RUSTFLAGS} -C target-cpu=znver5"
 
-MAKEOPTS="-j17 -l16"
+MAKEOPTS="-j16 -l17"
 ACCEPT_LICENSE="*"
 ACCEPT_KEYWORDS="~amd64"
 MAKECONF_EOF
