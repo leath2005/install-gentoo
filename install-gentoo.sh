@@ -71,7 +71,7 @@ if [[ "${INSTALL_PHASE:-}" == "chroot" ]]; then
     # ──────────────────────────────────────────────────────────────────
     #  PHASE 2 — Inside chroot
     # ──────────────────────────────────────────────────────────────────
-    source /etc/profile
+    set +u; source /etc/profile; set -u
     export PS1="(chroot) ${PS1:-}"
 
     DISK="${INSTALL_DISK}"
@@ -136,7 +136,7 @@ if [[ "${INSTALL_PHASE:-}" == "chroot" ]]; then
     fi
 
     env-update
-    source /etc/profile
+    set +u; source /etc/profile; set -u
     export PS1="(chroot) ${PS1:-}"
 
     # ── 2.6 Firmware ─────────────────────────────────────────────────
