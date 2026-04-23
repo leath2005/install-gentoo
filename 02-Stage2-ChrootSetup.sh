@@ -83,6 +83,12 @@ echo ">>> Installing linux-firmware and sof-firmware ..."
 safe_emerge sys-kernel/linux-firmware
 safe_emerge sys-firmware/sof-firmware
 
+# ---- Mount EFI partition and prepare bootloader directory ----
+echo ""
+echo ">>> Ensuring /efi/EFI/Gentoo directory exists ..."
+mkdir --parents /efi/EFI/Gentoo
+echo "    /efi/EFI/Gentoo ready for kernel installation."
+
 # ---- Kernel tooling ----
 echo ""
 echo ">>> Configuring and installing sys-kernel/installkernel with dracut + efistub ..."

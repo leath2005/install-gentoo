@@ -240,6 +240,7 @@ set +u
 source /etc/profile
 set -u
 
+mkdir --parents /efi
 mountpoint -q /efi || mount /dev/${PART}1 /efi
 mkdir --parents /efi/EFI/Gentoo
 
