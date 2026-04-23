@@ -183,17 +183,7 @@ tar xpvf "$STAGE3_TARBALL" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo
 echo ""
 echo ">>> Writing /mnt/gentoo/etc/portage/make.conf ..."
 
-if [[ "$INSTALL_MODE" == "speed" ]]; then
-    MAKE_JOBS=$(nproc)
-    MAKE_LOAD=$((MAKE_JOBS + 1))
-    if grep -q '^MAKEOPTS=' /mnt/gentoo/etc/portage/make.conf; then
-        sed -i "s|^MAKEOPTS=.*|MAKEOPTS=\"-j${MAKE_JOBS} -l${MAKE_LOAD}\"|" /mnt/gentoo/etc/portage/make.conf
-    else
-        echo "MAKEOPTS=\"-j${MAKE_JOBS} -l${MAKE_LOAD}\"" >> /mnt/gentoo/etc/portage/make.conf
-    fi
-    echo "    SPEED-RUN: keeping stage3 defaults in make.conf; set MAKEOPTS only."
-else
-    cat > /mnt/gentoo/etc/portage/make.conf <<'MAKECONF'
+cat > /mnt/gentoo/etc/portage/make.conf <<'MAKECONF'
 COMMON_FLAGS="-march=znver5 -O2 -pipe"
 CFLAGS="${COMMON_FLAGS}"
 CXXFLAGS="${COMMON_FLAGS}"
@@ -206,7 +196,6 @@ USE="${USE} networkmanager -systemd"
 ACCEPT_LICENSE="*"
 ACCEPT_KEYWORDS="amd64"
 MAKECONF
-fi
 
 echo "$INSTALL_MODE" > /mnt/gentoo/etc/install-mode
 
