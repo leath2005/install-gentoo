@@ -1,4 +1,12 @@
 #!/bin/bash
+if [ -z "${BASH_VERSION:-}" ]; then
+    exec /bin/bash "$0" "$@"
+fi
+
+if shopt -qo posix; then
+    exec /bin/bash "$0" "$@"
+fi
+
 set -euo pipefail
 
 # ============================================================
