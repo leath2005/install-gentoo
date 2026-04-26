@@ -23,7 +23,11 @@ fi
 
 SCRIPT_SOURCE="${BASH_SOURCE[0]}"
 if [[ "$SCRIPT_SOURCE" != */* ]]; then
-    SCRIPT_SOURCE=$(command -v -- "$SCRIPT_SOURCE")
+    if SCRIPT_PATH=$(command -v -- "$SCRIPT_SOURCE" 2>/dev/null); then
+        SCRIPT_SOURCE="$SCRIPT_PATH"
+    else
+        SCRIPT_SOURCE="${PWD}/${SCRIPT_SOURCE}"
+    fi
 fi
 SCRIPT_DIR=$(cd -- "$(dirname -- "$SCRIPT_SOURCE")" && pwd)
 STAGE2_SCRIPT_SOURCE="${SCRIPT_DIR}/02-Stage2-ChrootSetup.sh"
