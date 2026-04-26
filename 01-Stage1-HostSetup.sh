@@ -161,47 +161,79 @@ wget -O "$STAGE3_DIGESTS_FILE" "$STAGE3_DIGESTS_URL"
 
 echo ""
 echo ">>> Verifying stage3 checksum ..."
-# Try multiple patterns to handle different DIGESTS file formats
-EXPECTED_SHA256=$(awk -v file="$STAGE3_TARBALL" '
-/SHA256/ {
-    # Try standard format: hash *filename or hash filename
-    for (i = 1; i <= NF; i++) {
-        candidate = $i
-        gsub(/^\*/, "", candidate)
-        if (candidate == file && i > 0) {
-            # Found the filename, hash should be in field 1
-            if ($1 ~ /^[A-Fa-f0-9]{64}$/) {
-                print tolower($1)
-                exit
-            }
-        }
+EXPECTED_DIGEST_INFO=$(awk -v file="$STAGE3_TARBALL" '
+/BLAKE2B/ { algo="BLAKE2B"; next }
+/SHA512/  { algo="SHA512"; next }
+/SHA256/  { algo="SHA256"; next }
+NF >= 2 {
+    candidate = $NF
+    gsub(/^\*/, "", candidate)
+    if (candidate != file) {
+        next
+    }
+
+    hash = tolower($1)
+    if (algo == "BLAKE2B" && hash ~ /^[A-Fa-f0-9]{128}$/) {
+        blake2b = hash
+    } else if (algo == "SHA512" && hash ~ /^[A-Fa-f0-9]{128}$/) {
+        sha512 = hash
+    } else if (algo == "SHA256" && hash ~ /^[A-Fa-f0-9]{64}$/) {
+        sha256 = hash
     }
 }
-!/SHA256/ && NF >= 2 {
-    # Fallback: check if first field is a 64-char hex and filename matches
-    candidate=$2
-    gsub(/^\*/, "", candidate)
-    if (candidate == file && $1 ~ /^[A-Fa-f0-9]{64}$/) {
-        print tolower($1)
+END {
+    if (blake2b != "") {
+        print "BLAKE2B " blake2b
+        exit
+    }
+    if (sha512 != "") {
+        print "SHA512 " sha512
+        exit
+    }
+    if (sha256 != "") {
+        print "SHA256 " sha256
         exit
     }
 }
 ' "$STAGE3_DIGESTS_FILE")
 
-if [[ -z "$EXPECTED_SHA256" ]]; then
-    echo "ERROR: Could not find SHA256 checksum for $STAGE3_TARBALL in $STAGE3_DIGESTS_FILE" >&2
+if [[ -z "$EXPECTED_DIGEST_INFO" ]]; then
+    echo "ERROR: Could not find a supported checksum for $STAGE3_TARBALL in $STAGE3_DIGESTS_FILE" >&2
+    echo "       Expected one of: BLAKE2B, SHA512, or SHA256." >&2
     echo "       Refusing to extract an unverified stage3 tarball." >&2
     exit 1
-else
-    ACTUAL_SHA256=$(sha256sum "$STAGE3_TARBALL" | awk '{print tolower($1)}')
-    if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
-        echo "ERROR: stage3 checksum mismatch." >&2
-        echo "       Expected: $EXPECTED_SHA256" >&2
-        echo "       Actual  : $ACTUAL_SHA256" >&2
-        exit 1
-    fi
-    echo "    Checksum verified (SHA256)."
 fi
+
+read -r CHECKSUM_ALGO EXPECTED_CHECKSUM <<< "$EXPECTED_DIGEST_INFO"
+case "$CHECKSUM_ALGO" in
+    BLAKE2B)
+        if ! command -v b2sum >/dev/null 2>&1; then
+            echo "ERROR: b2sum is required to verify BLAKE2B digests." >&2
+            exit 1
+        fi
+        ACTUAL_CHECKSUM=$(b2sum "$STAGE3_TARBALL" | awk '{print tolower($1)}')
+        ;;
+    SHA512)
+        ACTUAL_CHECKSUM=$(sha512sum "$STAGE3_TARBALL" | awk '{print tolower($1)}')
+        ;;
+    SHA256)
+        ACTUAL_CHECKSUM=$(sha256sum "$STAGE3_TARBALL" | awk '{print tolower($1)}')
+        ;;
+    *)
+        echo "ERROR: Unsupported checksum algorithm selected: $CHECKSUM_ALGO" >&2
+        exit 1
+        ;;
+esac
+
+if [[ "$ACTUAL_CHECKSUM" != "$EXPECTED_CHECKSUM" ]]; then
+    echo "ERROR: stage3 checksum mismatch." >&2
+    echo "       Algorithm: $CHECKSUM_ALGO" >&2
+    echo "       Expected : $EXPECTED_CHECKSUM" >&2
+    echo "       Actual   : $ACTUAL_CHECKSUM" >&2
+    exit 1
+fi
+
+echo "    Checksum verified ($CHECKSUM_ALGO)."
 
 echo ""
 echo ">>> Extracting stage3 tarball ..."
