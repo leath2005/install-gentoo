@@ -181,9 +181,12 @@ tar xpvf "$STAGE3_TARBALL" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo
 
 # ---- Write make.conf ----
 echo ""
-echo ">>> Writing /mnt/gentoo/etc/portage/make.conf ..."
+if [[ "$INSTALL_MODE" == "speed" ]]; then
+    echo ">>> SPEED-RUN: keeping stage3 make.conf defaults ..."
+else
+    echo ">>> Writing /mnt/gentoo/etc/portage/make.conf for full install ..."
 
-cat > /mnt/gentoo/etc/portage/make.conf <<'MAKECONF'
+    cat > /mnt/gentoo/etc/portage/make.conf <<'MAKECONF'
 COMMON_FLAGS="-march=znver5 -O2 -pipe"
 CFLAGS="${COMMON_FLAGS}"
 CXXFLAGS="${COMMON_FLAGS}"
@@ -194,8 +197,9 @@ RUSTFLAGS="${RUSTFLAGS} -C target-cpu=znver5"
 MAKEOPTS="-j16 -l17"
 USE="${USE} networkmanager -systemd"
 ACCEPT_LICENSE="*"
-ACCEPT_KEYWORDS="amd64"
+ACCEPT_KEYWORDS="~amd64"
 MAKECONF
+fi
 
 echo "$INSTALL_MODE" > /mnt/gentoo/etc/install-mode
 

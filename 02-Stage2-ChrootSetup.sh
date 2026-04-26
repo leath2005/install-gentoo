@@ -83,12 +83,6 @@ echo ">>> Installing linux-firmware and sof-firmware ..."
 safe_emerge sys-kernel/linux-firmware
 safe_emerge sys-firmware/sof-firmware
 
-# ---- Mount EFI partition and prepare bootloader directory ----
-echo ""
-echo ">>> Ensuring /efi/EFI/Gentoo directory exists ..."
-mkdir --parents /efi/EFI/Gentoo
-echo "    /efi/EFI/Gentoo ready for kernel installation."
-
 # ---- Kernel tooling ----
 echo ""
 echo ">>> Configuring and installing sys-kernel/installkernel with dracut + efistub ..."
@@ -96,9 +90,9 @@ mkdir --parents /etc/portage/package.use
 echo "sys-kernel/installkernel dracut efistub" > /etc/portage/package.use/installkernel
 safe_emerge sys-kernel/installkernel
 
-# ---- Detect root partition UUID ----
+# ---- Detect root and EFI partition devices ----
 echo ""
-echo ">>> Detecting root partition UUID ..."
+echo ">>> Detecting root and EFI partition devices ..."
 ROOT_DEV=$(findmnt -n -o SOURCE /)
 if [[ -z "$ROOT_DEV" ]]; then
     echo "ERROR: Could not determine root device via findmnt." >&2
@@ -111,8 +105,39 @@ if [[ -z "$ROOT_UUID" ]]; then
     exit 1
 fi
 
+ROOT_PARENT=$(lsblk -no PKNAME "$ROOT_DEV" 2>/dev/null | head -n 1)
+if [[ -z "$ROOT_PARENT" ]]; then
+    echo "ERROR: Could not determine parent disk for $ROOT_DEV." >&2
+    exit 1
+fi
+
+EFI_DEV=$(lsblk -rno PATH,PKNAME,PARTLABEL | awk -v root_parent="$ROOT_PARENT" '$2 == root_parent && $3 == "EFI" {print $1; exit}')
+if [[ -z "$EFI_DEV" ]]; then
+    echo "ERROR: Could not determine EFI partition on /dev/$ROOT_PARENT." >&2
+    exit 1
+fi
+
 echo "    Root device : $ROOT_DEV"
 echo "    Root UUID   : $ROOT_UUID"
+echo "    EFI device  : $EFI_DEV"
+
+# ---- Mount EFI partition and prepare bootloader directory ----
+echo ""
+echo ">>> Mounting EFI partition at /efi and preparing /efi/EFI/Gentoo ..."
+mkdir --parents /efi
+if mountpoint -q /efi; then
+    EFI_MOUNT_SOURCE=$(findmnt -n -o SOURCE /efi)
+    if [[ "$EFI_MOUNT_SOURCE" == /dev/* && "$EFI_MOUNT_SOURCE" != "$EFI_DEV" ]]; then
+        echo "ERROR: /efi is already mounted from $EFI_MOUNT_SOURCE, expected $EFI_DEV." >&2
+        exit 1
+    fi
+    echo "    /efi already mounted from $EFI_MOUNT_SOURCE."
+else
+    mount "$EFI_DEV" /efi
+    echo "    Mounted $EFI_DEV at /efi."
+fi
+mkdir --parents /efi/EFI/Gentoo
+echo "    /efi/EFI/Gentoo ready for kernel installation."
 
 # ---- Write dracut kernel cmdline config ----
 echo ""
@@ -230,7 +255,26 @@ if id -u "$NEW_USER" >/dev/null 2>&1; then
     echo ">>> User '$NEW_USER' already exists; skipping account creation."
 else
     echo ">>> Creating user '$NEW_USER' ..."
-    useradd -m -G users,wheel,audio,video,usb,cron -s /bin/bash "$NEW_USER"
+    USER_GROUPS=()
+    MISSING_GROUPS=()
+    for group_name in users wheel audio video usb cron; do
+        if getent group "$group_name" >/dev/null 2>&1; then
+            USER_GROUPS+=("$group_name")
+        else
+            MISSING_GROUPS+=("$group_name")
+        fi
+    done
+
+    if (( ${#USER_GROUPS[@]} > 0 )); then
+        USER_GROUP_LIST=$(IFS=,; echo "${USER_GROUPS[*]}")
+        useradd -m -G "$USER_GROUP_LIST" -s /bin/bash "$NEW_USER"
+    else
+        useradd -m -s /bin/bash "$NEW_USER"
+    fi
+
+    if (( ${#MISSING_GROUPS[@]} > 0 )); then
+        echo "    Skipping missing groups: ${MISSING_GROUPS[*]}"
+    fi
 fi
 
 echo ">>> Set password for '$NEW_USER' (interactive) ..."
