@@ -4,13 +4,14 @@ set -euo pipefail
 # ============================================================
 #  02-Stage2-ChrootSetup.sh
 #  Invoke from the HOST via:
-#    chroot /mnt/gentoo /bin/bash /path/to/02-Stage2-ChrootSetup.sh && /mnt/gentoo/tmp/gentoo-cleanup.sh
+#    chroot /mnt/gentoo /bin/bash /tmp/02-Stage2-ChrootSetup.sh && /mnt/gentoo/tmp/gentoo-cleanup.sh
 #
 #  Unified chroot phase (old Part1 + Part2):
 #  - Firmware + installkernel/dracut setup
 #  - CachyOS overlay and kernel install (autounmask-assisted)
 #  - fstab, hostname, networking, services, users
-#  - Writes host-side cleanup script at /tmp/gentoo-cleanup.sh
+#  - Writes cleanup script at /tmp/gentoo-cleanup.sh inside chroot
+#    (host path: /mnt/gentoo/tmp/gentoo-cleanup.sh)
 # ============================================================
 
 # --- Privilege check ---
@@ -76,6 +77,27 @@ if [[ "$INSTALL_MODE" == "speed" ]]; then
 else
     echo "    Profile: full path (Cachy overlay kernel, tuned performance setup)."
 fi
+
+# ---- Locale ----
+echo ""
+echo ">>> Finalizing locale configuration ..."
+SYSTEM_LANG="en_US.UTF-8"
+
+cat > /etc/locale.gen <<LOCALEGEN
+${SYSTEM_LANG} UTF-8
+LOCALEGEN
+
+locale-gen
+
+cat > /etc/env.d/02locale <<LOCALE
+LANG="${SYSTEM_LANG}"
+LOCALE
+
+set +u
+env-update && source /etc/profile
+set -u
+echo "    Wrote /etc/locale.gen for ${SYSTEM_LANG}."
+echo "    Selected LANG=${SYSTEM_LANG}"
 
 # ---- Firmware ----
 echo ""
@@ -158,8 +180,8 @@ if [[ "$INSTALL_MODE" == "speed" ]]; then
     safe_emerge sys-kernel/gentoo-kernel-bin
     KERNEL_TRACK="sys-kernel/gentoo-kernel-bin"
 else
-    echo ">>> Installing eselect-repository and git, enabling CachyOS-kernels overlay ..."
-    safe_emerge app-eselect/eselect-repository dev-vcs/git
+    echo ">>> Installing eselect-repository, git, sudo, vim, and neofetch; enabling CachyOS-kernels overlay ..."
+    safe_emerge app-eselect/eselect-repository dev-vcs/git app-admin/sudo app-editors/vim app-misc/neofetch
     eselect repository enable CachyOS-kernels >/dev/null 2>&1 || true
     emaint sync -r CachyOS-kernels
 

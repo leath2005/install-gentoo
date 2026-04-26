@@ -13,6 +13,18 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+SCRIPT_SOURCE="${BASH_SOURCE[0]}"
+if [[ "$SCRIPT_SOURCE" != */* ]]; then
+    SCRIPT_SOURCE=$(command -v -- "$SCRIPT_SOURCE")
+fi
+SCRIPT_DIR=$(cd -- "$(dirname -- "$SCRIPT_SOURCE")" && pwd)
+STAGE2_SCRIPT_SOURCE="${SCRIPT_DIR}/02-Stage2-ChrootSetup.sh"
+
+if [[ ! -f "$STAGE2_SCRIPT_SOURCE" ]]; then
+    echo "ERROR: Could not find 02-Stage2-ChrootSetup.sh next to this script." >&2
+    exit 1
+fi
+
 # --- Drive selection ---
 echo ""
 echo "Available block devices:"
@@ -53,6 +65,9 @@ else
     echo "    Mode behavior: full install with tuned make.conf and stage1 @world rebuild."
     echo "    Stage2 kernel path: CachyOS kernel from overlay."
 fi
+
+SYSTEM_LANG="en_US.UTF-8"
+echo ">>> Selected system locale: $SYSTEM_LANG"
 
 # Determine partition suffix (nvme/mmc devices use 'p' prefix for partitions)
 if [[ "$DRIVE" == nvme* || "$DRIVE" == mmcblk* ]]; then
@@ -162,8 +177,9 @@ EXPECTED_SHA256=$(awk -v file="$STAGE3_TARBALL" '
 ' "$STAGE3_DIGESTS_FILE")
 
 if [[ -z "$EXPECTED_SHA256" ]]; then
-    echo "WARNING: Could not find SHA256 checksum for $STAGE3_TARBALL in $STAGE3_DIGESTS_FILE" >&2
-    echo "         Skipping checksum verification (integrity check recommended manually)." >&2
+    echo "ERROR: Could not find SHA256 checksum for $STAGE3_TARBALL in $STAGE3_DIGESTS_FILE" >&2
+    echo "       Refusing to extract an unverified stage3 tarball." >&2
+    exit 1
 else
     ACTUAL_SHA256=$(sha256sum "$STAGE3_TARBALL" | awk '{print tolower($1)}')
     if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
@@ -202,6 +218,10 @@ MAKECONF
 fi
 
 echo "$INSTALL_MODE" > /mnt/gentoo/etc/install-mode
+
+echo ""
+echo ">>> Staging 02-Stage2-ChrootSetup.sh in /mnt/gentoo/tmp ..."
+install -m 0755 "$STAGE2_SCRIPT_SOURCE" /mnt/gentoo/tmp/02-Stage2-ChrootSetup.sh
 
 # ---- Copy resolv.conf and bind-mount pseudo-filesystems ----
 echo ""
@@ -264,7 +284,10 @@ echo ""
 echo "============================================================"
 echo " 01-Stage1-HostSetup has completed successfully."
 echo " Install mode: $INSTALL_MODE"
-echo " Proceed to set up the locale configuration by editing:"
-echo "   /mnt/gentoo/etc/locale.gen"
-echo " manually, then run 02-Stage2-ChrootSetup.sh from the host via chroot."
+echo " Locale will be configured automatically during stage2:"
+echo "   LANG=$SYSTEM_LANG"
+echo " Stage2 script staged at:"
+echo "   /mnt/gentoo/tmp/02-Stage2-ChrootSetup.sh"
+echo " Then run from the host:"
+echo "   chroot /mnt/gentoo /bin/bash /tmp/02-Stage2-ChrootSetup.sh && /mnt/gentoo/tmp/gentoo-cleanup.sh"
 echo "============================================================"
